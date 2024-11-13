@@ -2,6 +2,17 @@ const express = require("express");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const { Pool } = require("pg");
+
+// Create a new pool instance
+const pool = new Pool({
+  user: "postgres",
+  host: "localhost",
+  database: "taskdb",
+  password: "admin",
+  port: 5432,
+});
+
 app.use(express.json());
 
 // Sample in-memory data store
@@ -43,43 +54,67 @@ app.get("/", (req, res) => {
 });
 
 // CRUD operations
-app.get("/tasks", (req, res) => {
-  res.json(tasks);
+app.get("/tasks", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM tasks");
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
-app.post("/tasks", (req, res) => {
+app.post("/tasks", async (req, res) => {
   const { title, description } = req.body;
   if (!title || !description) {
     return res
       .status(400)
       .json({ error: "Title and description are required." });
   }
-  const task = { id: nextId++, title, description };
-  tasks.push(task);
-  res.status(201).json(task);
+  try {
+    const result = await pool.query(
+      "INSERT INTO tasks (title, description) VALUES ($1, $2) RETURNING *",
+      [title, description]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
-app.put("/tasks/:id", (req, res) => {
+app.put("/tasks/:id", async (req, res) => {
   const { id } = req.params;
   const { title, description } = req.body;
 
-  const taskIndex = tasks.findIndex((task) => task.id == id);
-  if (taskIndex === -1) {
-    return res.status(404).json({ error: "Task not found." });
+  try {
+    const result = await pool.query(
+      "UPDATE tasks SET title = $1, description = $2 WHERE id = $3 RETURNING *",
+      [title, description, id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Task not found." });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-
-  tasks[taskIndex] = { id: parseInt(id), title, description };
-  res.json(tasks[taskIndex]);
 });
 
-app.delete("/tasks/:id", (req, res) => {
+app.delete("/tasks/:id", async (req, res) => {
   const { id } = req.params;
-  const taskIndex = tasks.findIndex((task) => task.id == id);
-  if (taskIndex === -1) {
-    return res.status(404).json({ error: "Task not found." });
+
+  try {
+    const result = await pool.query("DELETE FROM tasks WHERE id = $1", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Task not found." });
+    }
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-  tasks.splice(taskIndex, 1);
-  res.status(204).send();
 });
 
 app.listen(PORT, () => {

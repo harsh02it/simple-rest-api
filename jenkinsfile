@@ -1,0 +1,70 @@
+pipeline {
+    agent any
+
+    environment {
+        NODE_HOME = tool 'NodeJS'
+        PATH = "${NODE_HOME}/bin:${env.PATH}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/harsh02it/simple-rest-api'
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                sh 'npm test' // Ensure you have tests defined
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarQube Scanner' // Ensure you have SonarQube Scanner configured
+                    withSonarQubeEnv('SonarQube') { // Replace with your SonarQube server name
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                waitForQualityGate abortPipeline: true
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t simple-rest-api .'
+            }
+        }
+
+        stage('Deploy to Nexus') {
+            steps {
+                nexusArtifactUploader artifacts: [
+                    [artifactId: 'simple-rest-api', classifier: '', file: 'Dockerfile', type: 'docker'],
+                ],
+                nexusUrl: 'http://localhost:8081', // Replace with your Nexus URL
+                groupId: 'com.example', // Replace with your group ID
+                nexusVersion: 'nexus3',
+                repository: 'docker-repo', // Replace with your Nexus repository name
+                version: '1.0.0' // Replace with your versioning strategy
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
