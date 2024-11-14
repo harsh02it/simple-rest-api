@@ -27,7 +27,7 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                bat 'npm install'
             }
         }
 
@@ -35,7 +35,7 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'npm-nexus-creds', variable: 'mynpmrc')]) {
                     echo 'Building...'
-                    sh 'npm install --userconfig $mynpmrc --registry http://localhost:8081/repository/npm-task-repo --loglevel verbose'
+                    bat 'npm install --userconfig $mynpmrc --registry http://localhost:8081/repository/npm-task-repo --loglevel verbose'
                 }
             }
         }
@@ -44,7 +44,7 @@ pipeline {
             steps {
                 script {
                     withSonarQubeEnv('SonarQube') {
-                        sh """${SCANNER_HOME}/bin/sonar-scanner -Dsonar.host.url=http://localhost:9000/ \
+                        bat """${SCANNER_HOME}/bin/sonar-scanner -Dsonar.host.url=http://localhost:9000/ \
                         -Dsonar.token=squ_aa488066755e2e65b859a3f26fa83559e3779157 \
                         -Dsonar.projectName="simple-rest-api" \
                         -Dsonar.exclusions=**/node_modules/** \
@@ -79,7 +79,7 @@ pipeline {
             steps {
                 withCredentials([file(credentialsId: 'npm-nexus-creds', variable: 'mynpmrc')]) {
                     echo 'Publishing to Nexus...'
-                    sh 'npm publish --userconfig $mynpmrc --loglevel verbose'
+                    bat 'npm publish --userconfig $mynpmrc --loglevel verbose'
                 }
             }
         }
