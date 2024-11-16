@@ -57,22 +57,21 @@ pipeline {
         stage('Quality Gate') {
             steps {
                 script {
-                    sleep(time: 20, unit: 'SECONDS') // Sleep to wait for the status to update
+                    // Wait for Quality Gate and get the result
                     def qualityGate = waitForQualityGate()
-                    if (qualityGate.status == 'IN_PROGRESS') {
-                        sleep(time: 20, unit: 'SECONDS') // Sleep to wait for the status to update
-                        error "Quality Gate is still in progress. Retrying..."
-                    }
-
-                    if (qualityGate.status != 'OK') {
-                        error "Quality Gate failed: ${qualityGate.status}"
-                    }
-                    else {
+                    
+                    // Check the Quality Gate result
+                    if (qualityGate.status == 'OK') {
                         echo "Quality Gate passed: ${qualityGate.status}"
+                    } else if (qualityGate.status == 'IN_PROGRESS') {
+                        error "Unexpected status: Quality Gate is still in progress. Check SonarQube settings."
+                    } else {
+                        error "Quality Gate failed: ${qualityGate.status}"
                     }
                 }
             }
         }
+
 
 
         stage('Publish to Nexus') {
